@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar Chart Generator</title>
+<!-- Include Chart.js library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+    }
+
+    canvas {
+        margin-top: 20px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+
+    th, td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: center;
+    }
+
+    th {
+        background-color: #f2f2f2;
+    }
+
+    .model-info {
+        margin-top: 20px;
+    }
+
+    .level-A {
+        background-color: rgba(153, 102, 255, 0.5);
+    }
+
+    .level-B {
+        background-color: rgba(54, 162, 235, 0.5);
+    }
+
+    .level-C {
+        background-color: rgba(75, 192, 192, 0.5);
+    }
+
+    .level-D {
+        background-color: rgba(255, 205, 86, 0.5);
+    }
+
+    .level-E {
+        background-color: rgba(255, 159, 64, 0.5);
+    }
+
+    .level-F {
+        background-color: rgba(255, 99, 132, 0.5);
+    }
+
+    /* Styles for explanations */
+    #explanations h2 {
+        font-size: 1.5em;
+        margin-bottom: 10px;
+    }
+
+    #explanations div {
+        margin-bottom: 20px;
+    }
+
+    #explanations div h3 {
+        font-size: 1.2em;
+        margin-bottom: 5px;
+    }
+
+    #explanations div p {
+        margin-bottom: 10px;
+    }
+</style>
+</head>
+<body>
+<h1>Radar Chart Generator</h1>
+<div id="chartContainer">
+    <canvas id="radarChart"></canvas>
+</div>
+
+<!-- Form for adding and removing AI models -->
+<form id="addRemoveModelForm">
+    <!-- Buttons for model operations -->
+</form>
+
+<!-- Table to display model information -->
+<div class="model-info">
+    <!-- Model information table -->
+</div>
+
+<!-- Dimension Explanations -->
+<div id="explanations">
+    <h2>Considered Factors for AI System Evaluation</h2>
+    <div>
+        <h3>Unit Environmental Impact (UE)</h3>
+        <p>1. Unit Energy Consumption (UEC): Measures the energy used throughout the AI system's lifecycle, including training and inference, normalized to output and hardware power.</p>
+        <p>2. Unit Carbon Footprint (UCF): Represents the greenhouse gas emissions from AI system operations and development.</p>
+        <p><strong>Measurement:</strong> Evaluate energy consumption using monitoring tools, meters, or data center tracking. Calculate carbon footprint based on electricity usage, server utilization, and emissions data.</p>
+    </div>
+    <div>
+        <h3>Economic Benefits (EB)</h3>
+        <p>1. Cost-Benefit Ratio (CBR): Compares development and maintenance costs against benefits generated.</p>
+        <p>2. Market Adaptability (MA): Evaluates the system's ability to adapt to market changes and user needs for long-term viability.</p>
+        <p><strong>Measurement:</strong> Collect financial data including hardware, software, personnel costs, and quantify benefits like revenue increase, cost savings, and ROI.</p>
+    </div>
+    <div>
+        <h3>Technological Advancements (TA)</h3>
+        <p>1. Innovation Index (II): Measures the system's innovativeness, including novel algorithms and problem-solving capabilities.</p>
+        <p>2. Scalability Score (SS): Indicates the system's ability to handle increased demands without proportionally increasing resources.</p>
+        <p>3. Compatibility Rating (CR): Assesses the system's compatibility with existing technologies, infrastructure, and regulations.</p>
+        <p><strong>Measurement:</strong> Evaluate scalability, compatibility, and innovation based on performance metrics, resource utilization, and industry benchmarks.</p>
+    </div>
+    <div>
+        <h3>Social Impact (SI)</h3>
+        <p>1. Unit Employment Effects (UEE): Examines the system's impact on employment, including job creation and displacement.</p>
+        <p>2. Unit Social Acceptance (USA): Measures societal acceptance considering ethical and cultural aspects.</p>
+        <p><strong>Measurement:</strong> Gather data on employment trends, job creation, societal perceptions, and ethical considerations to assess social effects.</p>
+    </div>
+    <div>
+        <h3>Ethical Considerations (EC)</h3>
+        <p>1. Data Privacy Compliance (DPC): Evaluates the system's adherence to data privacy laws and standards.</p>
+        <p>2. Fairness and Bias Index (FBI): Measures the system's fairness and bias mitigation capabilities.</p>
+        <p>3. Transparency and Explainability (TE): Indicates the system's transparency and ability to explain outcomes.</p>
+        <p><strong>Measurement:</strong> Evaluate data privacy, fairness, and transparency using audits, assessments, and qualitative evaluations.</p>
+    </div>
+</div>
+
+<!-- Form for adding and removing AI models -->
+<form id="addRemoveModelForm">
+    <button type="button" onclick="generateModel()">Generate AI Model</button>
+    <select id="modelSelect" onchange="selectModel()">
+        <option value="-1">Select AI Model to Remove</option>
+    </select>
+    <button type="button" onclick="removeModel()">Remove Selected Model</button>
+    <button type="button" onclick="clearModels()">Clear All Models</button>
+</form>
+
+<!-- Table to display model information -->
+<div class="model-info">
+    <h2>Model Information</h2>
+    <table id="modelInfoTable">
+        <thead>
+            <tr>
+                <th>Parameter</th>
+                <th>Value</th>
+                <th>Level</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Model information will be dynamically added here -->
+        </tbody>
+    </table>
+</div>
+
+
+<!-- JavaScript for generating radar chart and model information -->
+<script>
+    // Array to store AI models and their parameters
+    let models = [];
+
+    // Plugin for coloring the background of the radar chart
+    Chart.register({
+        id: 'backgroundSegment',
+        beforeDraw: function (chart) {
+            if (chart.config.type === 'radar') {
+                const ctx = chart.canvas.getContext('2d');
+                const rScale = chart.scales.r;
+                const angleMultiplier = Math.PI * 2 / chart.data.labels.length;
+                let options, from, to;
+
+                chart.data.labels.forEach((_, index) => {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(rScale.xCenter, rScale.yCenter);
+                    ctx.arc(rScale.xCenter, rScale.yCenter, rScale.getDistanceFromCenterForValue(100), angleMultiplier * index - Math.PI / 2, angleMultiplier * (index + 1) - Math.PI / 2);
+                    ctx.closePath();
+                    options = [
+                        { from: 0, to: 30, color: 'rgba(255, 99, 132, 0.5)' }, // F
+                        { from: 30, to: 50, color: 'rgba(255, 159, 64, 0.5)' }, // E
+                        { from: 50, to: 70, color: 'rgba(255, 205, 86, 0.5)' }, // D
+                        { from: 70, to: 80, color: 'rgba(75, 192, 192, 0.5)' }, // C
+                        { from: 80, to: 90, color: 'rgba(54, 162, 235, 0.5)' }, // B
+                        { from: 90, to: 100, color: 'rgba(153, 102, 255, 0.5)' } // A
+                    ];
+                    options.forEach((option) => {
+                        fillSegment(ctx, chart, rScale, option.from, option.to, option.color, angleMultiplier * index, angleMultiplier * (index + 1));
+                    });
+                    ctx.restore();
+                });
+            }
+        }
+    });
+
+    // Function to fill each segment with the correct color
+    function fillSegment(ctx, chart, rScale, from, to, color, startAngle, endAngle) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(rScale.xCenter, rScale.yCenter);
+        ctx.arc(rScale.xCenter, rScale.yCenter, rScale.getDistanceFromCenterForValue(to), startAngle - Math.PI / 2, endAngle - Math.PI / 2);
+        ctx.arc(rScale.xCenter, rScale.yCenter, rScale.getDistanceFromCenterForValue(from), endAngle - Math.PI / 2, startAngle - Math.PI / 2, true);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // Function to generate random AI model with higher probability in range 40-80
+    function generateModel() {
+        const modelName = 'AI Model ' + (models.length + 1);
+        const parameters = Array.from({ length: 12 }, () => generateRandomValue());
+        const color = getRandomColor();
+        models.push({ name: modelName, parameters: parameters, color: color });
+        addModelOption(modelName);
+        refreshChart();
+    }
+
+    // Function to generate random value with higher probability in range 40-80
+    function generateRandomValue() {
+        const min = 0;
+        const max = 100;
+        const range = max - min;
+        let value = Math.random() * range + min;
+        if (value < 40 || value > 80) {
+            // Increase probability of values in range 40-80
+            value = Math.random() * (range * 0.6) + 40;
+        }
+        return Math.floor(value);
+    }
+
+    // Function to add AI model option to select dropdown
+    function addModelOption(modelName) {
+        const selectElement = document.getElementById('modelSelect');
+        const option = document.createElement('option');
+        option.value = models.length - 1;
+        option.text = modelName;
+        selectElement.add(option);
+    }
+
+    // Function to remove selected AI model
+    function removeModel() {
+        const selectElement = document.getElementById('modelSelect');
+        const selectedIndex = selectElement.value;
+        if (selectedIndex >= 0) {
+            models.splice(selectedIndex, 1);
+            selectElement.remove(selectedIndex);
+            refreshChart();
+        }
+    }
+
+    // Function to clear all AI models
+    function clearModels() {
+        models = [];
+        const selectElement = document.getElementById('modelSelect');
+        selectElement.innerHTML = '<option value="-1">Select AI Model to Remove</option>';
+        clearModelInfoTable();
+        refreshChart();
+    }
+
+    // Function to clear model information table
+    function clearModelInfoTable() {
+        const modelInfoTableBody = document.getElementById('modelInfoTable').querySelector('tbody');
+        modelInfoTableBody.innerHTML = ''; // Clear existing rows
+    }
+
+    // Function to refresh radar chart with updated data
+    function refreshChart() {
+        const data = {
+            labels: ['UEC', 'UCF', 'CBR', 'MA', 'II', 'SS', 'CR', 'UEE', 'USA', 'DPC', 'FBI', 'TE'],
+            datasets: models.map((model) => ({
+                label: model.name,
+                data: model.parameters,
+                backgroundColor: 'rgba(0, 0, 0, 0)', // Transparent background color
+                borderColor: model.color, // Border color for radar lines
+                borderWidth: 2,
+                pointBackgroundColor: model.color, // Color of data points
+                pointBorderColor: '#fff', // Border color of data points
+                pointRadius: 4, // Size of data points
+                pointHoverRadius: 6, // Size of data points on hover
+                pointHoverBackgroundColor: model.color // Background color of data points on hover
+            }))
+        };
+
+        const config = {
+            type: 'radar',
+            data: data,
+            options: {
+                scales: {
+                    r: {
+                        suggestedMin: 0, // Minimum scale value
+                        suggestedMax: 100, // Maximum scale value
+                        ticks: {
+                            stepSize: 20 // Interval between scale ticks
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                const label = context.dataset.label || '';
+                                if (label) {
+                                    return `${label}: ${context.parsed}`;
+                                }
+                                return null;
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        const radarChartCanvas = document.getElementById('radarChart').getContext('2d');
+        if (window.myRadarChart) {
+            window.myRadarChart.destroy();
+        }
+        window.myRadarChart = new Chart(radarChartCanvas, config);
+
+        // Display composite stats
+        displayCompositeStats();
+
+        // Update composite stats
+        updateCompositeStats();
+    }
+
+    // Function to select AI model from dropdown
+    function selectModel() {
+        const selectElement = document.getElementById('modelSelect');
+        const selectedIndex = selectElement.value;
+        if (selectedIndex >= 0) {
+            const model = models[selectedIndex];
+            displayModelInfo(model);
+        } else {
+            clearModelInfoTable();
+        }
+    }
+
+    // Function to display model information in the table
+    function displayModelInfo(model) {
+        const modelInfoTableBody = document.getElementById('modelInfoTable').querySelector('tbody');
+        modelInfoTableBody.innerHTML = ''; // Clear existing rows
+
+        model.parameters.forEach((value, index) => {
+            const parameterName = ['UEC', 'UCF', 'CBR', 'MA', 'II', 'SS', 'CR', 'UEE', 'USA', 'DPC', 'FBI', 'TE'][index];
+            const parameterLevel = getParameterLevel(value);
+            const row = `
+                <tr class="level-${parameterLevel}">
+                    <td>${parameterName}</td>
+                    <td>${value}</td>
+                    <td>${parameterLevel}</td>
+                </tr>
+            `;
+            modelInfoTableBody.insertAdjacentHTML('beforeend', row);
+        });
+    }
+
+    // Function to determine parameter level based on its value
+    function getParameterLevel(value) {
+        if (value < 30) {
+            return 'F';
+        } else if (value < 50) {
+            return 'E';
+        } else if (value < 70) {
+            return 'D';
+        } else if (value < 80) {
+            return 'C';
+        } else if (value < 90) {
+            return 'B';
+        } else {
+            return 'A';
+        }
+    }
+
+    // Function to generate random color for AI model
+    function getRandomColor() {
+        const letters = '0123456789ABCDEF';
+        let color = '#';
+        for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+    }
+
+    // Function to calculate composite mean and variance of all models
+    function calculateCompositeStats() {
+        const totalModels = models.length;
+        if (totalModels === 0) {
+            return { mean: 0, variance: 0 };
+        }
+
+        let totalSum = 0;
+        let squaredSum = 0;
+
+        models.forEach((model) => {
+            const modelSum = model.parameters.reduce((acc, val) => acc + val, 0);
+            totalSum += modelSum;
+            squaredSum += modelSum * modelSum;
+        });
+
+        const mean = totalSum / (totalModels * 12);
+        const variance = (squaredSum / (totalModels * 12)) - (mean * mean);
+        return { mean: mean.toFixed(2), variance: variance.toFixed(2) };
+    }
+
+    // Function to display composite mean and variance in the table
+    function displayCompositeStats() {
+        const compositeStats = calculateCompositeStats();
+        const modelInfoTableBody = document.getElementById('modelInfoTable').querySelector('tbody');
+
+        // Create a new row for displaying composite stats
+        const row = `
+            <tr>
+                <td colspan="3">Composite Mean: ${compositeStats.mean}, Variance: ${compositeStats.variance}</td>
+            </tr>
+        `;
+
+        modelInfoTableBody.insertAdjacentHTML('beforeend', row);
+    }
+
+    // Call displayCompositeStats when models are added, removed, or cleared
+    function updateCompositeStats() {
+        clearModelInfoTable();
+        displayCompositeStats();
+    }
+
+    // JavaScript code for radar chart and model information
+
+    // Function to handle hover event and display dimension explanations
+    function handleHover(event) {
+        const target = event.target;
+        if (target.tagName === 'LABEL' && target.htmlFor) {
+            const dimension = target.htmlFor;
+            const explanationDiv = document.querySelector(`div[data-dimension="${dimension}"]`);
+            if (explanationDiv) {
+                const explanationText = explanationDiv.dataset.explanation;
+                if (explanationText) {
+                    // Display explanation on hover
+                    alert(explanationText);
+                }
+            }
+        }
+    }
+
+    // Add event listener for hover on radar chart labels
+    const radarLabels = document.querySelectorAll('#chartContainer .chartjs-radar-labels label');
+    radarLabels.forEach(label => {
+        label.addEventListener('mouseenter', handleHover);
+    });
+
+
+
+    // Initial chart generation
+    refreshChart();
+</script>
+
+<!-- Explanations for radar chart dimensions -->
+<div id="dimensionExplanations" style="display: none;">
+    <div data-dimension="UE" data-explanation="Unit Environmental Impact (UE): Measures the environmental impact of the AI system, including energy consumption and carbon footprint."></div>
+    <div data-dimension="EB" data-explanation="Economic Benefits (EB): Evaluates the economic aspects of the AI system, such as cost-benefit ratio and market adaptability."></div>
+    <div data-dimension="TA" data-explanation="Technological Advancements (TA): Assesses the AI system's technological innovations, scalability, and compatibility."></div>
+    <div data-dimension="SI" data-explanation="Social Impact (SI): Examines the AI system's impact on society, including employment effects and social acceptance."></div>
+    <div data-dimension="EC" data-explanation="Ethical Considerations (EC): Considers ethical aspects of the AI system, such as data privacy, fairness, bias, and transparency."></div>
+</div>
+</body>
+</html>
